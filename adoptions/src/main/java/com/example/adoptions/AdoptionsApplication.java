@@ -3,6 +3,8 @@ package com.example.adoptions;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
@@ -11,6 +13,8 @@ import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
+import org.springframework.ai.mcp.customizer.McpSyncClientCustomizer;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -26,9 +30,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.sql.DataSource;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 @SpringBootApplication
 public class AdoptionsApplication {
+    private static final Logger logger = LoggerFactory.getLogger(AdoptionsApplication.class);
+    CountDownLatch latch = new CountDownLatch(1);
 
     public static void main(String[] args) {
         SpringApplication.run(AdoptionsApplication.class, args);
@@ -58,18 +65,28 @@ public class AdoptionsApplication {
         mcp.initialize();
         return mcp;
     }
+
+    @Bean
+    McpSyncClientCustomizer customizeMcpClient() {
+        return (name, mcpClientSpec) -> {
+            mcpClientSpec.toolsChangeConsumer(tv -> {
+                logger.info("\nMCP TOOLS CHANGE: " + tv);
+                latch.countDown();
+            });
+        };
+    }
 }
 
 @Controller
 @ResponseBody
 class AdoptionsController {
 
-    private final ChatClient ai;
+    private final ChatClient chatClient;
 
     AdoptionsController(JdbcClient db,
                         McpSyncClient mcpSyncClient,
                         PromptChatMemoryAdvisor promptChatMemoryAdvisor,
-                        ChatClient.Builder ai,
+                        ChatClient.Builder builder,
                         DogRepository repository,
                         VectorStore vectorStore) {
 
@@ -88,7 +105,7 @@ class AdoptionsController {
         var system = """
                 You are an AI powered assistant to help people adopt a dog from the adoption agency named Pooch Palace with locations in Rio de Janeiro, Mexico City, Seoul, Tokyo, Singapore, Paris, Mumbai, New Delhi, Barcelona, London, and San Francisco. Information about the dogs available will be presented below. If there is no information, then return a polite response suggesting we don't have any dogs available.
                 """;
-        this.ai = ai
+        this.chatClient = builder
                 .defaultToolCallbacks(new SyncMcpToolCallbackProvider(mcpSyncClient))
                 .defaultAdvisors(promptChatMemoryAdvisor, QuestionAnswerAdvisor.builder(vectorStore).build())
                 .defaultSystem(system)
@@ -97,10 +114,11 @@ class AdoptionsController {
 
     @GetMapping("/{user}/assistant")
     String inquire(@PathVariable String user, @RequestParam String question) {
-        return ai
+        return chatClient
                 .prompt()
                 .user(question)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, user))
+//                .toolCallbacks(provider)
                 .call()
                 .content();
 

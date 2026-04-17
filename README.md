@@ -9,7 +9,7 @@
 ## 如何运行
 
 ```bash
-git clone https://github.com/chensoul/spring-ai-dog-adoption-showcase
+git clone https://github.com/zhijunio/spring-ai-dog-adoption-showcase
 cd spring-ai-dog-adoption-showcase
 
 cd scheduler

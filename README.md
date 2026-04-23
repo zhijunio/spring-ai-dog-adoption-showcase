@@ -4,7 +4,7 @@
 
 ## 文章
 
-- [零基础实战：用 Spring AI 写一个会“思考”的狗狗领养助手](https://blog.chensoul.cc/posts/2025/11/13/spring-ai-dog-adoption-showcase/) - 使用 RAG、MCP、向量存储和 PgVector 或者 PostgreSQL 构建可用于生产的狗狗领养服务的完整教程。
+- [零基础实战：用 Spring AI 写一个会“思考”的狗狗领养助手](https://blog.zhijun.io/posts/spring-ai-dog-adoption-showcase/) - 使用 RAG、MCP、向量存储和 PgVector 或者 PostgreSQL 构建可用于生产的狗狗领养服务的完整教程。
 
 ## 如何运行
 
